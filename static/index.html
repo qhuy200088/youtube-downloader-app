@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube to MP3 & MP4 Converter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <h1>YouTube Converter</h1>
+          <span>MP3 & MP4 Downloader</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btnOpenDownloadsFolder" class="btn-secondary" title="Mở thư mục lưu file">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+          Thư mục lưu trữ
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <!-- Hero / Search Section -->
+    <section class="hero-section">
+      <h2 class="hero-title">Tải Video & Âm Thanh YouTube</h2>
+      <p class="hero-subtitle">Hỗ trợ chuyển đổi MP3 lên tới 320kbps, video chất lượng cao MP4 1080p, 720p hoàn toàn miễn phí.</p>
+      
+      <div class="search-box-wrapper">
+        <div class="search-input-group">
+          <div class="input-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+            </svg>
+          </div>
+          <input 
+            type="text" 
+            id="urlInput" 
+            placeholder="Dán đường dẫn YouTube vào đây... (Ví dụ: https://www.youtube.com/watch?v=...)" 
+            autocomplete="off"
+            spellcheck="false"
+          >
+          <button id="btnPaste" class="btn-paste" title="Dán từ Clipboard">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+            </svg>
+            Dán link
+          </button>
+          <button id="btnConvert" class="btn-convert">
+            <span class="btn-text">Bắt đầu</span>
+            <div class="spinner" id="convertSpinner"></div>
+          </button>
+        </div>
+        <div id="urlError" class="error-banner"></div>
+      </div>
+    </section>
+
+    <!-- Video Result Section -->
+    <section id="resultSection" class="result-section hidden">
+      <div class="result-container">
+        
+        <!-- Video Preview Card -->
+        <div class="video-info-card">
+          <div class="thumb-container">
+            <img id="videoThumb" src="" alt="Thumbnail">
+            <span id="videoDuration" class="duration-badge">0:00</span>
+          </div>
+          <div class="video-details">
+            <h3 id="videoTitle" class="video-title">Tên video YouTube</h3>
+            <div class="meta-row">
+              <span class="channel-badge" id="videoUploader">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span id="videoUploaderText">Channel Name</span>
+              </span>
+              <span class="views-badge" id="videoViews">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <span id="videoViewsText">0 lượt xem</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Format Selection Container (Screenshots matching UI) -->
+        <div class="converter-box">
+          <!-- Navigation Tabs -->
+          <div class="tabs-header">
+            <button class="tab-btn active" data-tab="audio">
+              <svg class="tab-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+              </svg>
+              <span>Audio</span>
+            </button>
+            <button class="tab-btn" data-tab="video">
+              <svg class="tab-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+              </svg>
+              <span>Video</span>
+            </button>
+            <button class="tab-btn" data-tab="other">
+              <svg class="tab-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="12" y1="8" x2="12" y2="16"></line>
+                <line x1="8" y1="12" x2="16" y2="12"></line>
+              </svg>
+              <span>Other</span>
+            </button>
+          </div>
+
+          <!-- Tab Contents -->
+          <div class="tab-content-wrapper">
+            <!-- Audio Tab -->
+            <div id="tab-audio" class="tab-pane active">
+              <table class="format-table">
+                <thead>
+                  <tr>
+                    <th>File type</th>
+                    <th>Format</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="audioTableBody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Video Tab -->
+            <div id="tab-video" class="tab-pane">
+              <table class="format-table">
+                <thead>
+                  <tr>
+                    <th>File type</th>
+                    <th>Format</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="videoTableBody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Other Tab -->
+            <div id="tab-other" class="tab-pane">
+              <table class="format-table">
+                <thead>
+                  <tr>
+                    <th>File type</th>
+                    <th>Format</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="otherTableBody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Download History Section -->
+    <section class="history-section">
+      <div class="section-title-row">
+        <h3>Lịch sử tải gần đây</h3>
+        <button id="btnRefreshHistory" class="btn-text-link">Làm mới</button>
+      </div>
+      <div id="historyList" class="history-grid">
+        <div class="empty-history">Chưa có tệp nào được tải xuống. Hãy dán một link YouTube để bắt đầu!</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Progress / Download Modal -->
+  <div id="progressModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalTitle">Đang chuyển đổi tệp tin...</h3>
+        <button id="btnCloseModal" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-file-info">
+          <div class="badge-type" id="modalFormatBadge">MP3 320kbps</div>
+          <div class="modal-video-title" id="modalVideoTitle">Tiêu đề video</div>
+        </div>
+
+        <div class="progress-container">
+          <div class="progress-bar-bg">
+            <div id="progressBar" class="progress-bar-fill" style="width: 0%"></div>
+          </div>
+          <div class="progress-stats">
+            <span id="progressPercent" class="stat-pct">0%</span>
+            <span id="progressSpeed" class="stat-speed">0 KB/s</span>
+            <span id="progressEta" class="stat-eta">ETA: --:--</span>
+          </div>
+        </div>
+
+        <p id="modalStatusText" class="modal-status-text">Đang kết nối tới YouTube...</p>
+
+        <!-- Completed Actions -->
+        <div id="modalCompletedActions" class="modal-completed-actions hidden">
+          <a id="btnDirectDownload" href="#" class="btn-download-big">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+            </svg>
+            Tải về máy tính (<span id="modalFileSize">0 MB</span>)
+          </a>
+          <button id="btnOpenLocalFolder" class="btn-outline">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            Mở thư mục lưu file
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <p>YouTube to MP3 / MP4 Converter • Chạy hoàn toàn nội bộ trên máy của bạn với yt-dlp & FFmpeg</p>
+  </footer>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>
