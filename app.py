@@ -468,4 +468,4 @@ if __name__ == "__main__":
     print(f" Truy cập trình duyệt: http://localhost:{port}")
     print(f" Thư mục tải về mặc định: {USER_DOWNLOADS}")
     print(f"======================================================")
-    uvicorn.run("app:app", host="127.0.0.1", port=port, reload=False)
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=False)
