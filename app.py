@@ -15,10 +15,11 @@ import time
 import re
 import threading
 import subprocess
+import json
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -431,7 +432,11 @@ def download_file(task_id: str):
     )
 
 @app.post("/api/open-folder/{task_id}")
-def open_folder(task_id: str):
+def open_folder(task_id: str, request: Request):
+    # Prevent remote users coming via Cloudflare Tunnel from opening Explorer on host PC
+    if request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for"):
+        raise HTTPException(status_code=403, detail="Tính năng mở thư mục chỉ khả dụng trực tiếp trên máy chủ.")
+
     task = tasks.get(task_id)
     if not task or not task.get("file_path"):
         raise HTTPException(status_code=404, detail="File không tồn tại")
@@ -441,7 +446,6 @@ def open_folder(task_id: str):
         subprocess.run(f'explorer.exe /select,"{os.path.abspath(file_path)}"', shell=True)
         return {"status": "ok"}
     else:
-        # Just open folder
         folder = os.path.dirname(file_path)
         if os.path.exists(folder):
             subprocess.run(f'explorer.exe "{folder}"', shell=True)
@@ -452,6 +456,17 @@ def open_folder(task_id: str):
 def get_history():
     return download_history[:20]
 
+@app.get("/api/ping")
+def ping():
+    return {"status": "ok"}
+
+@app.get("/config.json")
+def get_config():
+    cfg_path = Path(__file__).parent / "config.json"
+    if cfg_path.exists():
+        return FileResponse(str(cfg_path), media_type="application/json")
+    return {"api_base": ""}
+
 # Static files mount
 static_dir = Path(__file__).parent / "static"
 static_dir.mkdir(exist_ok=True)
@@ -461,11 +476,67 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 def index():
     return FileResponse(str(static_dir / "index.html"))
 
+def start_cloudflare_tunnel_and_sync(port: int):
+    project_dir = Path(__file__).parent
+    cf_exe = project_dir / "cloudflared.exe"
+    if not cf_exe.exists():
+        cf_in_path = shutil.which("cloudflared")
+        if cf_in_path:
+            cf_exe = Path(cf_in_path)
+        else:
+            print("[WARNING] Không tìm thấy cloudflared.exe để tạo kết nối công khai.")
+            return
+
+    print("[INFO] Đang khởi tạo Cloudflare Tunnel kết nối với GitHub Pages...")
+    try:
+        proc = subprocess.Popen(
+            [str(cf_exe), "tunnel", "--url", f"http://127.0.0.1:{port}"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace"
+        )
+        tunnel_url = None
+        for line in proc.stdout:
+            match = re.search(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com", line)
+            if match:
+                tunnel_url = match.group(0)
+                break
+
+        if tunnel_url:
+            print(f"======================================================")
+            print(f" [PUBLIC] Cloudflare Tunnel URL: {tunnel_url}")
+            print(f" [GITHUB] Link cố định: https://qhuy200088.github.io/youtube-downloader-app/")
+            print(f"======================================================")
+            cfg_file = project_dir / "config.json"
+            cfg_data = {
+                "api_base": tunnel_url,
+                "updated_at": time.strftime("%Y-%m-%d %H:%M:%S")
+            }
+            cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
+
+            # Push updated config.json to GitHub so GitHub Pages connects immediately
+            subprocess.run(["git", "add", "config.json"], cwd=str(project_dir), capture_output=True)
+            subprocess.run(["git", "commit", "-m", f"Auto-update tunnel URL: {tunnel_url}"], cwd=str(project_dir), capture_output=True)
+            push_res = subprocess.run(["git", "push", "origin", "main"], cwd=str(project_dir), capture_output=True, text=True)
+            if push_res.returncode == 0:
+                print("[INFO] Đã đồng bộ địa chỉ Tunnel lên GitHub thành công!")
+            else:
+                print(f"[WARNING] Không thể push tự động lên GitHub: {push_res.stderr}")
+
+        # Keep draining stdout so pipe buffer never blocks cloudflared
+        for _ in proc.stdout:
+            pass
+    except Exception as e:
+        print(f"[ERROR] Lỗi khởi tạo Cloudflare Tunnel: {e}")
+
 if __name__ == "__main__":
     port = 8000
     print(f"======================================================")
     print(f" YouTube to MP3 / MP4 Converter Server Running!")
-    print(f" Truy cập trình duyệt: http://localhost:{port}")
+    print(f" Truy cập trên PC: http://localhost:{port}")
     print(f" Thư mục tải về mặc định: {USER_DOWNLOADS}")
     print(f"======================================================")
+    threading.Thread(target=start_cloudflare_tunnel_and_sync, args=(port,), daemon=True).start()
     uvicorn.run("app:app", host="0.0.0.0", port=port, reload=False)

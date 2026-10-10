@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // Elements
   const urlInput = document.getElementById('urlInput');
   const btnPaste = document.getElementById('btnPaste');
@@ -46,6 +46,49 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentVideoData = null;
   let activeTaskId = null;
   let pollInterval = null;
+  let API_BASE = '';
+
+  const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  if (!isLocalhost) {
+    if (btnOpenDownloadsFolder) btnOpenDownloadsFolder.style.display = 'none';
+    if (btnOpenLocalFolder) btnOpenLocalFolder.style.display = 'none';
+  }
+
+  async function resolveApiBase() {
+    if (!window.location.hostname.includes('github.io')) {
+      API_BASE = '';
+      return;
+    }
+    try {
+      // Fetch latest config.json via GitHub API to bypass CDN caching
+      const ghRes = await fetch('https://api.github.com/repos/qhuy200088/youtube-downloader-app/contents/config.json', {
+        headers: { 'Accept': 'application/vnd.github.v3.raw' },
+        cache: 'no-store'
+      });
+      if (ghRes.ok) {
+        const cfg = await ghRes.json();
+        if (cfg && cfg.api_base) {
+          API_BASE = cfg.api_base.replace(/\/$/, '');
+          return;
+        }
+      }
+    } catch (e) {
+      // Fallback to relative config.json
+    }
+    try {
+      const localRes = await fetch(`config.json?t=${Date.now()}`, { cache: 'no-store' });
+      if (localRes.ok) {
+        const cfg = await localRes.json();
+        if (cfg && cfg.api_base) {
+          API_BASE = cfg.api_base.replace(/\/$/, '');
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load config.json:', e);
+    }
+  }
+
+  await resolveApiBase();
 
   // Tab switching
   tabBtns.forEach(btn => {
@@ -114,7 +157,8 @@ document.addEventListener('DOMContentLoaded', () => {
     btnConvert.disabled = true;
 
     try {
-      const res = await fetch('/api/info', {
+      await resolveApiBase();
+      const res = await fetch(`${API_BASE}/api/info`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
@@ -133,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
       resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
     } catch (err) {
-      showError(err.message || 'Có lỗi xảy ra khi phân tích video.');
+      showError(err.message || 'Không thể kết nối tới máy chủ xử lý. Hãy đảm bảo run.bat đang bật trên PC.');
     } finally {
       btnConvert.classList.remove('loading');
       btnConvert.disabled = false;
@@ -213,11 +257,12 @@ document.addEventListener('DOMContentLoaded', () => {
     progressSpeed.textContent = '0 KB/s';
     progressEta.textContent = 'ETA: --:--';
     modalStatusText.textContent = 'Đang gửi yêu cầu tới máy chủ...';
+    modalStatusText.style.color = '#475569';
     modalCompletedActions.classList.add('hidden');
     progressModal.classList.remove('hidden');
 
     try {
-      const res = await fetch('/api/download', {
+      const res = await fetch(`${API_BASE}/api/download`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -248,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!activeTaskId) return;
 
     try {
-      const res = await fetch(`/api/progress/${activeTaskId}`);
+      const res = await fetch(`${API_BASE}/api/progress/${activeTaskId}`);
       if (!res.ok) return;
 
       const task = await res.json();
@@ -266,12 +311,13 @@ document.addEventListener('DOMContentLoaded', () => {
         progressPercent.textContent = '100%';
         modalStatusText.textContent = 'Tệp đã sẵn sàng! Đang tự động lưu về máy...';
         modalFileSize.textContent = task.filesize_str || 'File';
-        btnDirectDownload.href = `/api/file/${activeTaskId}`;
+        const fileUrl = `${API_BASE}/api/file/${activeTaskId}`;
+        btnDirectDownload.href = fileUrl;
         modalCompletedActions.classList.remove('hidden');
 
         // Automatically trigger browser download
         const hiddenLink = document.createElement('a');
-        hiddenLink.href = `/api/file/${activeTaskId}`;
+        hiddenLink.href = fileUrl;
         hiddenLink.download = task.filename || 'download';
         document.body.appendChild(hiddenLink);
         hiddenLink.click();
@@ -295,18 +341,17 @@ document.addEventListener('DOMContentLoaded', () => {
   btnOpenLocalFolder.addEventListener('click', async () => {
     if (!activeTaskId) return;
     try {
-      await fetch(`/api/open-folder/${activeTaskId}`, { method: 'POST' });
+      await fetch(`${API_BASE}/api/open-folder/${activeTaskId}`, { method: 'POST' });
     } catch (err) {
       alert('Không thể mở thư mục: ' + err.message);
     }
   });
 
   btnOpenDownloadsFolder.addEventListener('click', async () => {
-    // Open default folder
     if (activeTaskId) {
-      fetch(`/api/open-folder/${activeTaskId}`, { method: 'POST' });
+      fetch(`${API_BASE}/api/open-folder/${activeTaskId}`, { method: 'POST' });
     } else {
-      window.open('/api/history', '_blank');
+      window.open(`${API_BASE}/api/history`, '_blank');
     }
   });
 
@@ -325,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // History loader
   async function loadHistory() {
     try {
-      const res = await fetch('/api/history');
+      const res = await fetch(`${API_BASE}/api/history`);
       if (!res.ok) return;
 
       const items = await res.json();
@@ -338,6 +383,14 @@ document.addEventListener('DOMContentLoaded', () => {
       items.forEach(item => {
         const div = document.createElement('div');
         div.className = 'history-item';
+        const openFolderBtnHtml = isLocalhost ? `
+            <button class="btn-icon btn-open-hist" data-task="${item.task_id}" title="Mở trên máy">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>
+              Mở file
+            </button>
+        ` : '';
         div.innerHTML = `
           <div class="history-left">
             <span class="history-badge ${item.type === 'audio' ? 'audio' : 'video'}">${item.format}</span>
@@ -347,24 +400,22 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
           </div>
           <div class="history-actions">
-            <a href="/api/file/${item.task_id}" class="btn-icon" title="Tải lại">
+            <a href="${API_BASE}/api/file/${item.task_id}" class="btn-icon" title="Tải lại">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                 <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
               </svg>
               Tải lại
             </a>
-            <button class="btn-icon btn-open-hist" data-task="${item.task_id}" title="Mở trên máy">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-              </svg>
-              Mở file
-            </button>
+            ${openFolderBtnHtml}
           </div>
         `;
 
-        div.querySelector('.btn-open-hist').addEventListener('click', () => {
-          fetch(`/api/open-folder/${item.task_id}`, { method: 'POST' });
-        });
+        const openBtn = div.querySelector('.btn-open-hist');
+        if (openBtn) {
+          openBtn.addEventListener('click', () => {
+            fetch(`${API_BASE}/api/open-folder/${item.task_id}`, { method: 'POST' });
+          });
+        }
 
         historyList.appendChild(div);
       });

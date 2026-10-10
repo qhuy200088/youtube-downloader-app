@@ -15,5 +15,7 @@ temp_downloads/
 *.wav
 *.flac
 *.webm
+cloudflared.exe
+*.log
 .DS_Store
 Thumbs.db
